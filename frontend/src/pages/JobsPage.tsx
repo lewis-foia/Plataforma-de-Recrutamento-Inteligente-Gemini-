@@ -1,244 +1,151 @@
-import { useEffect, useState, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { useJobStore } from '@/store/jobStore'
-import { useAuthStore } from '@/store/authStore'
-import Card, { CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
-import Badge from '@/components/ui/Badge'
-import Button from '@/components/ui/Button'
-import { api } from '@/lib/axios'
-import {
-  Plus, Briefcase, GraduationCap, Clock, Calendar, Search, X, Filter, SlidersHorizontal
-} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useJobStore } from '@/store/jobStore';
+import { useAuthStore } from '@/store/authStore';
+import { Briefcase, PlusCircle, Clock, Users, Eye, Phone, Mail, ChevronRight, Search } from 'lucide-react';
+import MetricCard from '@/components/ui/MetricCard';
+import Button from '@/components/ui/Button';
+import Spinner from '@/components/ui/Spinner';
+import JobFormModal from '@/components/jobs/JobFormModal';
 
 export default function JobsPage() {
-  const { jobs, isLoading, fetchJobs } = useJobStore()
-  const user = useAuthStore(s => s.user)
-
-  // Estados locais para pesquisa e filtros
-  const [searchTerm, setSearchTerm] = useState('')
-  const [skillFilter, setSkillFilter] = useState('')
-  const [isSearching, setIsSearching] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
+  const { jobs, isLoading, fetchJobs } = useJobStore();
+  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [termoBusca, setTermoBusca] = useState('');
 
   useEffect(() => {
-    fetchJobs()
-  }, [fetchJobs])
+    fetchJobs();
+  }, [fetchJobs]);
 
-  // Pesquisa com debounce simples (aciona após parar de digitar por 400ms)
-  useEffect(() => {
-    if (searchTerm === '' && skillFilter === '') {
-      fetchJobs()
-      return
-    }
-    const timer = setTimeout(() => {
-      performSearch()
-    }, 400)
-    return () => clearTimeout(timer)
-  }, [searchTerm, skillFilter])
+  // Filtro local por título ou descrição
+  const vagasFiltradas = useMemo(() => {
+    if (!termoBusca) return jobs;
+    const termo = termoBusca.toLowerCase();
+    return jobs.filter(job => 
+      job.title.toLowerCase().includes(termo) || 
+      job.description.toLowerCase().includes(termo)
+    );
+  }, [jobs, termoBusca]);
 
-  const performSearch = useCallback(async () => {
-    setIsSearching(true)
-    try {
-      const params = new URLSearchParams()
-      if (searchTerm.trim()) params.append('search', searchTerm.trim())
-      if (skillFilter.trim()) params.append('skills', skillFilter.trim())
-      const { data } = await api.get(`/jobs?${params.toString()}`)
-      useJobStore.setState({ jobs: data })
-    } catch {
-      // mantém os dados anteriores em caso de erro
-    } finally {
-      setIsSearching(false)
-    }
-  }, [searchTerm, skillFilter])
+  // Métricas reais a partir dos dados da API
+  const metricas = useMemo(() => {
+    const total = jobs.length;
+    const abertas = jobs.filter(j => j.status === 'OPEN').length;
+    const totalCandidaturas = jobs.reduce((sum, j) => sum + (j.applications_count || 0), 0);
+    return { total, abertas, totalCandidaturas };
+  }, [jobs]);
 
-  const clearFilters = () => {
-    setSearchTerm('')
-    setSkillFilter('')
-    fetchJobs()
-  }
-
-  const hasActiveFilters = searchTerm.trim() !== '' || skillFilter.trim() !== ''
-
-  // Estado de carregamento inicial
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-          <p className="text-sm text-gray-500">A carregar vagas...</p>
-        </div>
-      </div>
-    )
-  }
+  if (isLoading) return <Spinner centered text="A carregar vagas..." />;
 
   return (
-    <div className="space-y-6 fade-in">
-      {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Briefcase size={24} className="text-primary-600" />
-            Vagas
-          </h2>
-          <p className="text-gray-500 text-sm mt-1">
-            {jobs.length} vaga{jobs.length !== 1 ? 's' : ''} disponível{jobs.length !== 1 ? 'eis' : ''}
-            {hasActiveFilters && <span className="text-primary-600"> (filtradas)</span>}
-          </p>
+    <div className="space-y-8">
+      {/* SECÇÃO HERO - apenas com campo de busca */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-8 text-white">
+        <h1 className="text-3xl font-bold mb-2">Vagas disponíveis</h1>
+        <p className="text-blue-100 mb-6">Encontre a oportunidade ideal para o seu próximo desafio</p>
+        <div className="relative max-w-md">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Pesquisar por título ou descrição..."
+            value={termoBusca}
+            onChange={(e) => setTermoBusca(e.target.value)}
+            className="w-full rounded-xl bg-white text-gray-900 pl-10 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
         </div>
-        <div className="flex items-center gap-2">
+      </div>
+
+      {/* MÉTRICAS REAIS */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <MetricCard title="Total de vagas" value={metricas.total} icon={<Briefcase size={22} />} color="blue" />
+        <MetricCard title="Vagas abertas" value={metricas.abertas} icon={<Clock size={22} />} color="green" />
+        <MetricCard title="Candidaturas totais" value={metricas.totalCandidaturas} icon={<Users size={22} />} color="purple" />
+      </div>
+
+      {/* LISTA DE VAGAS */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center flex-wrap gap-3">
+          <h2 className="text-xl font-semibold text-gray-900">Todas as vagas</h2>
           {(user?.role === 'RECRUITER' || user?.role === 'ADMIN') && (
-            <Link to="/jobs/create">
-              <Button className="shadow-md shadow-primary-200">
-                <Plus size={18} />
-                Nova Vaga
-              </Button>
-            </Link>
+            <Button onClick={() => setShowCreateModal(true)} icon={<PlusCircle size={18} />}>Nova vaga</Button>
           )}
         </div>
-      </div>
 
-      {/* Barra de pesquisa */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Pesquisar por título ou descrição..."
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white hover:border-gray-300 transition-colors"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        {vagasFiltradas.length === 0 ? (
+          <div className="bg-white border border-gray-200 rounded-2xl py-12 text-center">
+            <Briefcase size={48} className="mx-auto text-gray-300 mb-3" />
+            <h3 className="text-lg font-semibold text-gray-700">Nenhuma vaga encontrada</h3>
+            <p className="text-gray-500 mt-1">Tente outro termo de pesquisa ou volte mais tarde.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {vagasFiltradas.map(vaga => (
+              <div
+                key={vaga.id}
+                onClick={() => navigate(`/jobs/${vaga.id}`)}
+                className="bg-white border border-gray-200 rounded-2xl p-5 cursor-pointer transition-all hover:shadow-md hover:scale-[1.01]"
               >
-                <X size={16} />
-              </button>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className={`${showFilters ? 'bg-primary-50 text-primary-600' : ''}`}
-          >
-            <SlidersHorizontal size={18} />
-          </Button>
-          {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <Filter size={16} className="mr-1" /> Limpar
-            </Button>
-          )}
-        </div>
-
-        {/* Filtros expandíveis */}
-        {showFilters && (
-          <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200 animate-in fade-in">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={skillFilter}
-                onChange={e => setSkillFilter(e.target.value)}
-                placeholder="Filtrar por skills (ex: Python, React)"
-                className="w-full pl-4 pr-4 py-2 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-              />
-            </div>
-          </div>
-        )}
-
-        {isSearching && (
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <div className="w-3 h-3 border-2 border-gray-300 border-t-primary-500 rounded-full animate-spin" />
-            A pesquisar...
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-gray-900 text-lg">{vaga.title}</h3>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        vaga.status === 'OPEN' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {vaga.status === 'OPEN' ? 'Aberta' : 'Fechada'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {vaga.education_level && (
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{vaga.education_level}</span>
+                      )}
+                      {vaga.experience_years > 0 && (
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{vaga.experience_years} anos</span>
+                      )}
+                    </div>
+                    <p className="text-gray-600 text-sm mt-3 line-clamp-2">{vaga.description}</p>
+                    <div className="flex items-center gap-3 mt-3 text-gray-400 text-xs">
+                      <span className="flex items-center gap-1"><Users size={12} /> {vaga.applications_count || 0} candidaturas</span>
+                      <span className="flex items-center gap-1"><Eye size={12} /> ver detalhes</span>
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <Briefcase size={16} className="text-gray-500" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Estado vazio */}
-      {jobs.length === 0 ? (
-        <Card className="shadow-sm border border-gray-200/80">
-          <CardContent className="py-16 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-              <Search size={28} className="text-gray-400" />
+      {/* SECÇÃO DE AJUDA / CONTACTO (opcional, pode ser removida se não tiver API real) */}
+      <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-8 text-white">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <h3 className="text-xl font-bold mb-2">Precisa de ajuda?</h3>
+            <p className="text-gray-300 text-sm mb-4">Entre em contacto com a nossa equipa de suporte</p>
+            <div className="flex items-center gap-3 mb-2">
+              <Phone size={18} className="text-blue-400" />
+              <span className="text-lg font-semibold">+258 870275070</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-700">
-              {hasActiveFilters ? 'Nenhum resultado encontrado' : 'Nenhuma vaga disponível'}
-            </h3>
-            <p className="text-gray-500 mt-1 max-w-sm mx-auto">
-              {hasActiveFilters
-                ? 'Tente alterar os termos da pesquisa ou limpar os filtros.'
-                : user?.role === 'RECRUITER' || user?.role === 'ADMIN'
-                  ? 'Crie uma nova vaga para começar a receber candidatos.'
-                  : 'Volte mais tarde para verificar novas oportunidades.'}
-            </p>
-            {(user?.role === 'RECRUITER' || user?.role === 'ADMIN') && !hasActiveFilters && (
-              <Link to="/jobs/create" className="inline-block mt-4">
-                <Button variant="outline">
-                  <Plus size={16} />
-                  Criar Primeira Vaga
-                </Button>
-              </Link>
-            )}
-            {hasActiveFilters && (
-              <Button variant="outline" onClick={clearFilters} className="mt-4">
-                <X size={16} className="mr-1" /> Limpar Filtros
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {jobs.map(job => {
-            const formattedDate = new Date(job.created_at).toLocaleDateString('pt-BR', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-            })
-
-            return (
-              <Link key={job.id} to={`/jobs/${job.id}`}>
-                <Card className="h-full shadow-sm border border-gray-200/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base font-semibold text-gray-900 group-hover:text-primary-600 transition-colors line-clamp-1">
-                        {job.title}
-                      </CardTitle>
-                      <Badge variant={job.status === 'OPEN' ? 'success' : 'default'}>
-                        {job.status === 'OPEN' ? 'Aberta' : 'Fechada'}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-gray-600 text-sm line-clamp-3 leading-relaxed">
-                      {job.description}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
-                      {job.education_level && (
-                        <span className="inline-flex items-center gap-1">
-                          <GraduationCap size={12} />
-                          {job.education_level}
-                        </span>
-                      )}
-                      {job.experience_years > 0 && (
-                        <span className="inline-flex items-center gap-1">
-                          <Clock size={12} />
-                          {job.experience_years} {job.experience_years === 1 ? 'ano' : 'anos'}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-400 pt-2 border-t border-gray-50">
-                      <Calendar size={11} />
-                      <span>{formattedDate}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            )
-          })}
+            <div className="flex items-center gap-3">
+              <Mail size={18} className="text-blue-400" />
+              <span>suporte@recruitai.com</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-end">
+            <Button variant="outline" className="!text-white !border-white hover:!bg-white/10" onClick={() => window.location.href = 'mailto:suporte@recruitai.com'}>
+              Falar com suporte <ChevronRight size={16} />
+            </Button>
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Modal para criar/editar vaga (apenas recrutadores/admin) */}
+      <JobFormModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} />
     </div>
-  )
+  );
 }

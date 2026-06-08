@@ -1,5 +1,7 @@
-﻿from fastapi import FastAPI
+﻿from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from app.api.v1.router import api_router
 from app.core.config import settings
 
@@ -34,3 +36,12 @@ async def root():
         "version": "1.0.0",
         "docs": "/docs",
     }
+
+# Tratamento de erros de validação (mostra detalhes no log)
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print(f"ERRO DE VALIDAÇÃO: {exc.errors()}")  # Aparece no terminal
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )

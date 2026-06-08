@@ -1,31 +1,32 @@
-import { useCallback, useState } from 'react'
-import { useDropzone } from 'react-dropzone'
-import { toast } from 'sonner'
-import { useResumeStore } from '@/store/resumeStore'
-import Card, { CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
-import Badge from '@/components/ui/Badge'
-import Button from '@/components/ui/Button'
-import { Upload, FileText, FileCheck, FileWarning, FileClock, Cloud, RefreshCw, ArrowUp, Eye, ChevronDown, ChevronUp, User, Mail, Phone, GraduationCap, Briefcase, Award, Globe } from 'lucide-react'
+import { useCallback, useState, useEffect } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { toast } from 'sonner';
+import { useResumeStore } from '@/store/resumeStore';
+import { Upload, FileText, FileCheck, FileWarning, FileClock, RefreshCw, Cloud } from 'lucide-react';
+import Spinner from '@/components/ui/Spinner';
+import Button from '@/components/ui/Button';
 
 export default function UploadResumePage() {
-  const { resumes, isLoading, uploadResume, fetchResumes } = useResumeStore()
-  const [uploading, setUploading] = useState(false)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const { resumes, isLoading, uploadResume, fetchResumes } = useResumeStore();
+  const [uploading, setUploading] = useState(false);
 
-  useState(() => { fetchResumes() }, [])
+  useEffect(() => {
+    fetchResumes();
+  }, [fetchResumes]);
 
   const onDrop = useCallback(async (files: File[]) => {
-    if (!files[0]) return
-    setUploading(true)
+    if (!files[0]) return;
+    setUploading(true);
     try {
-      await uploadResume(files[0])
-      toast.success('Currículo enviado com sucesso!')
+      await uploadResume(files[0]);
+      toast.success('Currículo enviado com sucesso!');
+      await fetchResumes();
     } catch (e: any) {
-      toast.error(e.response?.data?.detail || 'Erro ao enviar currículo')
+      toast.error(e.response?.data?.detail || 'Erro ao enviar currículo');
     } finally {
-      setUploading(false)
+      setUploading(false);
     }
-  }, [uploadResume])
+  }, [uploadResume, fetchResumes]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -35,53 +36,55 @@ export default function UploadResumePage() {
     },
     maxFiles: 1,
     maxSize: 10 * 1024 * 1024,
-  })
+  });
 
-  const statusConfig: Record<string, { icon: typeof FileCheck; variant: 'success' | 'danger' | 'warning' | 'info' | 'default'; label: string }> = {
-    PENDING: { icon: FileClock, variant: 'warning', label: 'Pendente' },
-    PROCESSING: { icon: RefreshCw, variant: 'info', label: 'Processando' },
-    PROCESSED: { icon: FileCheck, variant: 'success', label: 'Processado' },
-    FAILED: { icon: FileWarning, variant: 'danger', label: 'Falhou' },
-  }
-
-  const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id)
-  }
+  const statusConfig: Record<string, { icon: any; color: string; bg: string; label: string }> = {
+    PENDING: { icon: FileClock, color: 'text-amber-600', bg: 'bg-amber-50', label: 'Pendente' },
+    PROCESSING: { icon: RefreshCw, color: 'text-blue-600', bg: 'bg-blue-50', label: 'Processando' },
+    PROCESSED: { icon: FileCheck, color: 'text-emerald-600', bg: 'bg-emerald-50', label: 'Processado' },
+    FAILED: { icon: FileWarning, color: 'text-red-600', bg: 'bg-red-50', label: 'Falhou' },
+  };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 fade-in">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Upload size={24} className="text-primary-600" />
-          Upload de Currículo
-        </h2>
-        <p className="text-gray-500 text-sm mt-1">
-          Envie seu currículo em PDF ou DOCX para análise automática com IA.
-        </p>
+    <div className="space-y-6">
+      {/* Cabeçalho */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+            <Upload size={20} className="text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Submeter Currículo</h2>
+            <p className="text-gray-500 text-sm">Envie seu currículo para análise automática com IA</p>
+          </div>
+        </div>
       </div>
 
       {/* Área de upload */}
-      <Card className="shadow-sm border border-gray-200/80">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
-            <Cloud size={18} className="text-primary-500" />
-            Enviar arquivo
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Cloud size={18} className="text-gray-500" />
+            <h3 className="text-base font-medium text-gray-800">Enviar arquivo</h3>
+          </div>
           <div
             {...getRootProps()}
-            className={`relative border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-200
-              ${isDragActive ? 'border-primary-500 bg-primary-50/50 scale-[1.01] shadow-lg shadow-primary-100' : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'}
-              ${uploading ? 'pointer-events-none opacity-70' : ''}`}
+            className={`
+              relative border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all
+              ${isDragActive 
+                ? 'border-blue-400 bg-blue-50 scale-[1.01]' 
+                : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+              }
+              ${uploading ? 'pointer-events-none opacity-70' : ''}
+            `}
           >
             <input {...getInputProps()} />
-            <div className={`mb-4 transition-transform duration-300 ${isDragActive ? 'scale-110' : ''}`}>
+            <div className={`mb-4 transition-transform ${isDragActive ? 'scale-110' : ''}`}>
               {uploading ? (
-                <div className="w-14 h-14 mx-auto border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+                <Spinner size="md" />
               ) : (
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto transition-colors ${isDragActive ? 'bg-primary-100' : 'bg-gray-100'}`}>
-                  <Upload size={28} className={isDragActive ? 'text-primary-600' : 'text-gray-400'} />
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto ${isDragActive ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                  <Upload size={28} className={isDragActive ? 'text-blue-600' : 'text-gray-500'} />
                 </div>
               )}
             </div>
@@ -92,8 +95,8 @@ export default function UploadResumePage() {
               </>
             ) : isDragActive ? (
               <>
-                <p className="text-primary-700 font-medium">Solte o arquivo aqui</p>
-                <p className="text-xs text-primary-400 mt-1">PDF ou DOCX (máx. 10MB)</p>
+                <p className="text-blue-600 font-medium">Solte o arquivo aqui</p>
+                <p className="text-xs text-blue-500 mt-1">PDF ou DOCX (máx. 10MB)</p>
               </>
             ) : (
               <>
@@ -103,104 +106,55 @@ export default function UploadResumePage() {
               </>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Lista de currículos com dados extraídos */}
-      <Card className="shadow-sm border border-gray-200/80">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
-            <FileText size={18} className="text-primary-500" />
-            Meus Currículos
-          </CardTitle>
-          <button onClick={() => fetchResumes()} className="text-xs text-gray-400 hover:text-primary-600 transition-colors flex items-center gap-1">
-            <RefreshCw size={12} />
-            Atualizar
-          </button>
-        </CardHeader>
-        <CardContent>
+      {/* Lista de currículos enviados */}
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText size={18} className="text-gray-500" />
+            <h3 className="text-base font-medium text-gray-800">Meus Currículos</h3>
+            <button
+              onClick={() => fetchResumes()}
+              className="ml-auto text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1"
+            >
+              <RefreshCw size={12} /> Atualizar
+            </button>
+          </div>
+
           {isLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <div className="w-6 h-6 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-            </div>
+            <Spinner centered />
           ) : resumes.length === 0 ? (
             <div className="text-center py-8">
-              <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                <FileText size={20} className="text-gray-400" />
-              </div>
+              <FileText size={40} className="mx-auto text-gray-300 mb-2" />
               <p className="text-gray-500 text-sm">Nenhum currículo enviado ainda.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {resumes.map(r => {
-                const config = statusConfig[r.status] || statusConfig.PENDING
-                const StatusIcon = config.icon
-                const isExpanded = expandedId === r.id
-                const data = r.parsed_data
-
+              {resumes.map((resume) => {
+                const config = statusConfig[resume.status] || statusConfig.PENDING;
+                const StatusIcon = config.icon;
                 return (
-                  <div key={r.id} className="bg-gray-50 rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
-                          <FileText size={18} className="text-gray-500" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-700 truncate">{r.original_filename}</p>
-                          <p className="text-xs text-gray-400">{new Date(r.uploaded_at).toLocaleDateString('pt-BR')}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={config.variant}>{config.label}</Badge>
-                        {r.status === 'PROCESSED' && (
-                          <button onClick={() => toggleExpand(r.id)} className="text-gray-400 hover:text-primary-600">
-                            {isExpanded ? <ChevronUp size={18} /> : <Eye size={18} />}
-                          </button>
-                        )}
+                  <div key={resume.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    <div className="flex items-center gap-3">
+                      <FileText size={18} className="text-gray-500" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{resume.original_filename}</p>
+                        <p className="text-xs text-gray-400">{new Date(resume.uploaded_at).toLocaleDateString()}</p>
                       </div>
                     </div>
-                    {isExpanded && data && (
-                      <div className="px-4 pb-4 border-t border-gray-200 pt-3 space-y-3">
-                        {data.full_name && (
-                          <div className="flex items-center gap-2 text-sm"><User size={14} className="text-gray-400" /><span className="font-medium">{data.full_name}</span></div>
-                        )}
-                        {data.email && (
-                          <div className="flex items-center gap-2 text-sm"><Mail size={14} className="text-gray-400" /><span>{data.email}</span></div>
-                        )}
-                        {data.phone && (
-                          <div className="flex items-center gap-2 text-sm"><Phone size={14} className="text-gray-400" /><span>{data.phone}</span></div>
-                        )}
-                        {data.skills?.length > 0 && (
-                          <div>
-                            <div className="flex items-center gap-2 text-sm font-medium mb-1"><Briefcase size={14} className="text-gray-400" />Skills</div>
-                            <div className="flex flex-wrap gap-1">{data.skills.map((s: string, i: number) => <Badge key={i} variant="info">{s}</Badge>)}</div>
-                          </div>
-                        )}
-                        {data.education?.length > 0 && (
-                          <div>
-                            <div className="flex items-center gap-2 text-sm font-medium mb-1"><GraduationCap size={14} className="text-gray-400" />Formação</div>
-                            {data.education.map((e: any, i: number) => (
-                              <p key={i} className="text-xs text-gray-600">{e.degree} — {e.institution} ({e.year})</p>
-                            ))}
-                          </div>
-                        )}
-                        {data.experience?.length > 0 && (
-                          <div>
-                            <div className="flex items-center gap-2 text-sm font-medium mb-1"><Briefcase size={14} className="text-gray-400" />Experiência</div>
-                            {data.experience.map((exp: any, i: number) => (
-                              <p key={i} className="text-xs text-gray-600">{exp.role} na {exp.company} ({exp.years} anos)</p>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.color}`}>
+                      <StatusIcon size={12} className="mr-1" />
+                      {config.label}
+                    </span>
                   </div>
-                )
+                );
               })}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
-  )
+  );
 }
