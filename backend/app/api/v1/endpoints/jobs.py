@@ -1,7 +1,7 @@
 ﻿from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from uuid import UUID
+from uuid import UUID, uuid4
 from app.core.deps import get_db, get_current_user, require_role
 from app.schemas.job import JobCreateRequest, JobUpdateRequest, JobResponse
 from app.models.job import Job, JobStatus
@@ -80,14 +80,33 @@ async def create_job(
     current_user = Depends(require_role("RECRUITER", "ADMIN")),
     db: AsyncSession = Depends(get_db)
 ):
-    # Obter o recruiter_id a partir do user_id
-    result = await db.execute(
-        select(Recruiter).where(Recruiter.user_id == current_user.id)
-    )
-    recruiter = result.scalar_one_or_none()
-    if not recruiter:
-        raise HTTPException(400, "Recruiter profile not found")
+    recruiter = None
+    # Se for ADMIN, tentamos obter ou criar um recrutador
+    if current_user.role == "ADMIN":
+        # Buscar o primeiro recrutador existente (qualquer um)
+        result = await db.execute(select(Recruiter).limit(1))
+        recruiter = result.scalar_one_or_none()
+        # Se não existir nenhum recrutador, criar um dummy para o admin
+        if not recruiter:
+            recruiter = Recruiter(
+                id=uuid4(),
+                user_id=current_user.id,
+                company_name="Admin Company",
+                position="Admin"
+            )
+            db.add(recruiter)
+            await db.commit()
+            await db.refresh(recruiter)
+    else:
+        # Para RECRUITER, obter o seu próprio perfil
+        result = await db.execute(
+            select(Recruiter).where(Recruiter.user_id == current_user.id)
+        )
+        recruiter = result.scalar_one_or_none()
+        if not recruiter:
+            raise HTTPException(400, "Recruiter profile not found for this user")
 
+    # Criar a vaga
     job = Job(
         recruiter_id=recruiter.id,
         title=request.title,
