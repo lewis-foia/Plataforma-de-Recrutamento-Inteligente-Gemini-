@@ -8,7 +8,7 @@ class JobCreateRequest(BaseModel):
     description: str = Field(min_length=20)
     education_level: Optional[str] = None
     experience_years: int = Field(default=0, ge=0)
-    required_skills: list[str] = Field(default_factory=list)
+    required_skills: list[str] = Field(default_factory=list)   # usado apenas na criação
 
 class JobUpdateRequest(BaseModel):
     title: Optional[str] = Field(None, min_length=5, max_length=255)
@@ -24,6 +24,6 @@ class JobResponse(BaseModel):
     education_level: Optional[str]
     experience_years: int
     status: str
-    required_skills: list[str] = []
+    # ⚠️ required_skills NÃO está aqui – evita erro 500
     created_at: datetime
     updated_at: datetime

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -11,21 +11,18 @@ import JobsPage from '@/pages/JobsPage';
 import JobDetailPage from '@/pages/JobDetailPage';
 import ProfilePage from '@/pages/ProfilePage';
 import UsersPage from '@/pages/UsersPage';
-import UploadResumePage from '@/pages/UploadResumePage'; // <-- importação
+import UploadResumePage from '@/pages/UploadResumePage';
 
 export default function AppRouter() {
-  const fetchMe = useAuthStore(s => s.fetchMe);
-  const [isLoading, setIsLoading] = useState(true);
+  const { fetchMe, isLoading, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    let mounted = true;
-    fetchMe().finally(() => {
-      if (mounted) setIsLoading(false);
-    });
-    return () => { mounted = false; };
+    fetchMe();
   }, [fetchMe]);
 
-  if (isLoading) return <Spinner centered text="A carregar plataforma..." />;
+  if (isLoading) {
+    return <Spinner centered text="A carregar plataforma..." />;
+  }
 
   return (
     <Routes>
@@ -38,7 +35,7 @@ export default function AppRouter() {
           <Route path="/jobs/:id" element={<JobDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/users" element={<UsersPage />} />
-          <Route path="/upload-resume" element={<UploadResumePage />} /> {/* rota adicionada */}
+          <Route path="/upload-resume" element={<UploadResumePage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

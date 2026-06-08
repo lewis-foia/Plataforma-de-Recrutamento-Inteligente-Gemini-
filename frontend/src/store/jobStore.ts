@@ -44,37 +44,29 @@ export interface CandidateRanking {
 }
 
 interface JobState {
-  // Estado
   jobs: Job[];
   currentJob: Job | null;
   candidates: CandidateRanking[];
   isLoading: boolean;
   error: string | null;
 
-  // Ações CRUD
   fetchJobs: (force?: boolean) => Promise<void>;
   fetchJob: (id: string) => Promise<void>;
   createJob: (data: JobCreateData) => Promise<Job>;
   updateJob: (id: string, data: JobUpdateData) => Promise<void>;
   closeJob: (id: string) => Promise<void>;
-
-  // Rankings
   fetchCandidates: (jobId: string) => Promise<void>;
 
-  // Helpers
   clearError: () => void;
   clearCurrentJob: () => void;
   updateJobInList: (updatedJob: Job) => void;
   reset: () => void;
 }
 
-// ---------------------------------------------------------------------------
 // Cache control
-// ---------------------------------------------------------------------------
 let jobsFetchPromise: Promise<void> | null = null;
 let lastJobsFetch = 0;
-const JOBS_STALE_MS = 30_000; // 30 segundos
-
+const JOBS_STALE_MS = 30_000;
 let candidatesFetchPromise: { [jobId: string]: Promise<void> | null } = {};
 
 // ---------------------------------------------------------------------------
@@ -88,27 +80,20 @@ export const useJobStore = create<JobState>()((set, get) => ({
   isLoading: false,
   error: null,
 
-  /**
-   * Carrega a lista de vagas.
-   * Se `force` for false e os dados tiverem sido carregados há menos de 30s,
-   * utiliza a cache sem nova requisição.
-   */
   fetchJobs: async (force = false) => {
     const now = Date.now();
     const { jobs } = get();
 
-    // Cache válido
     if (!force && lastJobsFetch && now - lastJobsFetch < JOBS_STALE_MS && jobs.length > 0) {
       return;
     }
-
-    // Evita chamadas concorrentes
     if (jobsFetchPromise) return jobsFetchPromise;
 
     set({ isLoading: true, error: null });
     jobsFetchPromise = (async () => {
       try {
-        const { data } = await api.get<Job[]>('/jobs');
+        // ✅ BARRA FINAL
+        const { data } = await api.get<Job[]>('/jobs/');
         set({ jobs: data, isLoading: false, error: null });
         lastJobsFetch = Date.now();
       } catch (err: unknown) {
@@ -121,21 +106,17 @@ export const useJobStore = create<JobState>()((set, get) => ({
         jobsFetchPromise = null;
       }
     })();
-
     return jobsFetchPromise;
   },
 
-  /**
-   * Carrega os detalhes de uma vaga específica.
-   * Se a vaga já for a `currentJob` e não houver erro, evita nova requisição.
-   */
   fetchJob: async (id: string) => {
     const { currentJob } = get();
     if (currentJob?.id === id && !get().error) return;
 
     set({ isLoading: true, error: null });
     try {
-      const { data } = await api.get<Job>(`/jobs/${id}`);
+      // ✅ BARRA FINAL
+      const { data } = await api.get<Job>(`/jobs/${id}/`);
       set({ currentJob: data, isLoading: false });
     } catch (err: unknown) {
       const message =
@@ -146,21 +127,16 @@ export const useJobStore = create<JobState>()((set, get) => ({
     }
   },
 
-  /**
-   * Cria uma nova vaga.
-   * Retorna o objeto Job criado.
-   * Atualiza a lista local e invalida a cache de jobs.
-   */
   createJob: async (jobData: JobCreateData): Promise<Job> => {
     set({ isLoading: true, error: null });
     try {
-      const { data } = await api.post<Job>('/jobs', jobData);
+      // ✅ BARRA FINAL
+      const { data } = await api.post<Job>('/jobs/', jobData);
       set(state => ({
         jobs: [data, ...state.jobs],
         isLoading: false,
       }));
-      // Invalida cache para forçar refresh na próxima chamada
-      lastJobsFetch = 0;
+      lastJobsFetch = 0; // invalida cache
       return data;
     } catch (err: unknown) {
       const message =
@@ -172,15 +148,11 @@ export const useJobStore = create<JobState>()((set, get) => ({
     }
   },
 
-  /**
-   * Atualiza parcialmente uma vaga existente.
-   * Atualiza a lista local e o `currentJob` se for a mesma vaga.
-   * Invalida a cache.
-   */
   updateJob: async (id: string, jobData: JobUpdateData) => {
     set({ isLoading: true, error: null });
     try {
-      const { data } = await api.put<Job>(`/jobs/${id}`, jobData);
+      // ✅ BARRA FINAL
+      const { data } = await api.put<Job>(`/jobs/${id}/`, jobData);
       set(state => ({
         jobs: state.jobs.map(j => (j.id === id ? data : j)),
         currentJob: state.currentJob?.id === id ? data : state.currentJob,
@@ -197,14 +169,11 @@ export const useJobStore = create<JobState>()((set, get) => ({
     }
   },
 
-  /**
-   * Encerra uma vaga (status CLOSED).
-   * Atualiza a lista local e o `currentJob`.
-   */
   closeJob: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const { data } = await api.patch<Job>(`/jobs/${id}/close`);
+      // ✅ BARRA FINAL
+      const { data } = await api.patch<Job>(`/jobs/${id}/close/`);
       set(state => ({
         jobs: state.jobs.map(j => (j.id === id ? data : j)),
         currentJob: state.currentJob?.id === id ? data : state.currentJob,
@@ -221,18 +190,14 @@ export const useJobStore = create<JobState>()((set, get) => ({
     }
   },
 
-  /**
-   * Carrega a lista de candidatos ranqueados para uma vaga.
-   * Previne chamadas concorrentes para a mesma vaga.
-   */
   fetchCandidates: async (jobId: string) => {
-    // Evita chamadas concorrentes para o mesmo jobId
     if (candidatesFetchPromise[jobId]) return candidatesFetchPromise[jobId];
 
     set({ isLoading: true, error: null });
     candidatesFetchPromise[jobId] = (async () => {
       try {
-        const { data } = await api.get<CandidateRanking[]>(`/jobs/${jobId}/candidates`);
+        // ✅ BARRA FINAL
+        const { data } = await api.get<CandidateRanking[]>(`/jobs/${jobId}/candidates/`);
         set({ candidates: data, isLoading: false });
       } catch (err: unknown) {
         const message =
@@ -244,11 +209,8 @@ export const useJobStore = create<JobState>()((set, get) => ({
         candidatesFetchPromise[jobId] = null;
       }
     })();
-
     return candidatesFetchPromise[jobId];
   },
-
-  // ---------- Helpers ----------
 
   clearError: () => set({ error: null }),
   clearCurrentJob: () => set({ currentJob: null }),
