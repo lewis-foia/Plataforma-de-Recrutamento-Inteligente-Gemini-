@@ -1,3 +1,4 @@
+// src/components/ui/MetricCard.tsx
 import { ReactNode } from 'react';
 
 interface MetricCardProps {
@@ -18,14 +19,20 @@ const colorClasses = {
 
 export default function MetricCard({ title, value, icon, color = 'blue', trend }: MetricCardProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-all hover:scale-[1.01]">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 transition-all duration-200 hover:shadow-md hover:scale-[1.02]">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-gray-500 text-sm font-medium">{title}</p>
           <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
-          {trend && <p className="text-xs text-green-600 mt-2">↑ {trend.value} {trend.label}</p>}
+          {trend && (
+            <p className="text-xs text-green-600 mt-2">
+              ↑ {trend.value} {trend.label}
+            </p>
+          )}
         </div>
-        <div className={`${colorClasses[color]} p-3 rounded-xl`}>{icon}</div>
+        <div className={`${colorClasses[color]} p-3 rounded-xl`}>
+          {icon}
+        </div>
       </div>
     </div>
   );

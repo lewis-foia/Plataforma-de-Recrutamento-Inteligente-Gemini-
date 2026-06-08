@@ -25,4 +25,9 @@ async def refresh(refresh_token: str, db: AsyncSession = Depends(get_db)):
 
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
-    return UserResponse(id=str(current_user.id), email=current_user.email, role=current_user.role.value, is_active=current_user.is_active)
+    return UserResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        role=current_user.role.value,
+        is_active=current_user.is_active
+    )

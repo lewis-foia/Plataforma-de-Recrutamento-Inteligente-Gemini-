@@ -1,7 +1,8 @@
+// src/pages/UsersPage.tsx
 import { useEffect, useState, useMemo } from 'react';
 import { api } from '@/lib/axios';
 import { User } from '@/types';
-import { Users, Search, Award, BarChart3 } from 'lucide-react';
+import { Users, Shield, UserCheck, UserX, Search, Award, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import MetricCard from '@/components/ui/MetricCard';
 import Spinner from '@/components/ui/Spinner';
@@ -10,18 +11,168 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const fetchUsers = async () => { setLoading(true); try { const { data } = await api.get('/users'); setUsers(data); } catch { toast.error('Erro ao carregar utilizadores'); } finally { setLoading(false); } };
-  useEffect(() => { fetchUsers(); }, []);
-  const toggleActive = async (userId: string) => { try { const { data } = await api.patch(`/users/${userId}/toggle-active`); setUsers(prev => prev.map(u => u.id === userId ? data : u)); toast.success('Estado alterado'); } catch { toast.error('Erro ao alterar estado'); } };
-  const metrics = useMemo(() => { const total = users.length; const active = users.filter(u => u.is_active).length; const admins = users.filter(u => u.role === 'ADMIN').length; const activeRate = total > 0 ? Math.round((active / total) * 100) : 0; return { total, active, admins, activeRate }; }, [users]);
-  const filteredUsers = useMemo(() => { if (!searchTerm) return users; const term = searchTerm.toLowerCase(); return users.filter(u => u.email.toLowerCase().includes(term) || (u as any).full_name?.toLowerCase().includes(term)); }, [users, searchTerm]);
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/users');
+      setUsers(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      toast.error('Erro ao carregar utilizadores');
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const toggleActive = async (userId: string) => {
+    try {
+      const { data } = await api.patch(`/users/${userId}/toggle-active`);
+      setUsers(prev => prev.map(u => (u.id === userId ? data : u)));
+      toast.success('Estado alterado');
+    } catch (err: any) {
+      toast.error('Erro ao alterar estado');
+    }
+  };
+
+  const metrics = useMemo(() => {
+    const total = users.length;
+    const active = users.filter(u => u.is_active).length;
+    const admins = users.filter(u => u.role === 'ADMIN').length;
+    const activeRate = total > 0 ? Math.round((active / total) * 100) : 0;
+    return { total, active, admins, activeRate };
+  }, [users]);
+
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm.trim()) return users;
+    const term = searchTerm.toLowerCase();
+    return users.filter(u =>
+      u.email.toLowerCase().includes(term) ||
+      (u as any).full_name?.toLowerCase().includes(term)
+    );
+  }, [users, searchTerm]);
+
   if (loading) return <Spinner centered text="A carregar utilizadores..." />;
+
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm"><div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center"><Users size={20} className="text-blue-600" /></div><div><h2 className="text-xl font-semibold text-gray-900">Gestão de Utilizadores</h2><p className="text-gray-500 text-sm">Administre as contas da plataforma</p></div></div><div className="flex flex-wrap gap-3"><div className="bg-gray-50 rounded-xl px-3 py-1.5 text-center"><p className="text-gray-500 text-xs">Total</p><p className="text-gray-900 font-bold text-lg">{metrics.total}</p></div><div className="bg-gray-50 rounded-xl px-3 py-1.5 text-center"><p className="text-gray-500 text-xs">Ativos</p><p className="text-green-600 font-bold text-lg">{metrics.active}</p></div><div className="bg-gray-50 rounded-xl px-3 py-1.5 text-center"><p className="text-gray-500 text-xs">Admins</p><p className="text-rose-600 font-bold text-lg">{metrics.admins}</p></div></div></div><div className="mt-4 pt-3 border-t border-gray-100"><div className="flex justify-between text-xs text-gray-500 mb-1"><span>Contas ativas</span><span>{metrics.activeRate}%</span></div><div className="w-full bg-gray-100 rounded-full h-2"><div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${metrics.activeRate}%` }} /></div></div></div>
-      <div className="relative w-full sm:w-64"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input type="text" placeholder="Buscar por email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full rounded-xl bg-white border border-gray-300 pl-9 pr-4 py-2 text-sm text-gray-900" /></div>
-      {filteredUsers.length === 0 ? (<div className="bg-white border border-gray-200 rounded-2xl py-12 text-center"><p className="text-gray-500">Nenhum utilizador encontrado.</p></div>) : (<div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 border-b border-gray-200"><tr><th className="text-left py-3 px-4 text-gray-600">Email</th><th className="text-left py-3 px-4 text-gray-600">Role</th><th className="text-left py-3 px-4 text-gray-600">Status</th><th className="text-right py-3 px-4 text-gray-600">Ação</th></tr></thead><tbody>{filteredUsers.map(u => (<tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50"><td className="py-3 px-4 text-gray-800">{u.email}</td><td className="py-3 px-4"><span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${u.role === 'ADMIN' ? 'bg-rose-100 text-rose-700' : u.role === 'RECRUITER' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{u.role}</span></td><td className="py-3 px-4">{u.is_active ? <span className="text-green-600">Ativo</span> : <span className="text-red-600">Inativo</span>}</td><td className="py-3 px-4 text-right"><button onClick={() => toggleActive(u.id)} className={`px-2 py-1 rounded-lg text-xs font-medium ${u.is_active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}>{u.is_active ? 'Bloquear' : 'Ativar'}</button></td></tr>))}</tbody></table></div></div>)}
-      <div className="flex justify-between items-center text-gray-400 text-xs border-t border-gray-200 pt-4"><div className="flex items-center gap-2"><Award size={14} /><span>Total members: {metrics.total}</span></div><div className="flex items-center gap-2"><BarChart3 size={14} /><span>Current active: {metrics.active}</span></div></div>
+      {/* Cabeçalho */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+            <Users size={20} className="text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Gestão de Utilizadores</h2>
+            <p className="text-gray-500 text-sm">Administre as contas da plataforma</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Métricas */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <MetricCard title="Total" value={metrics.total} icon={<Users size={22} />} color="blue" />
+        <MetricCard title="Ativos" value={metrics.active} icon={<UserCheck size={22} />} color="green" />
+        <MetricCard title="Administradores" value={metrics.admins} icon={<Shield size={22} />} color="purple" />
+      </div>
+
+      {/* Barra de progresso */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+        <div className="flex justify-between text-sm text-gray-600 mb-1">
+          <span>Contas ativas</span>
+          <span className="font-semibold">{metrics.activeRate}%</span>
+        </div>
+        <div className="w-full bg-gray-100 rounded-full h-2">
+          <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${metrics.activeRate}%` }} />
+        </div>
+      </div>
+
+      {/* Busca */}
+      <div className="relative max-w-sm">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Buscar por email ou nome..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full rounded-xl bg-white border border-gray-300 pl-9 pr-4 py-2 text-sm text-gray-900"
+        />
+      </div>
+
+      {/* Tabela */}
+      {filteredUsers.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-2xl py-12 text-center">
+          <p className="text-gray-500">Nenhum utilizador encontrado.</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left py-3 px-4 text-gray-600">Email</th>
+                  <th className="text-left py-3 px-4 text-gray-600">Role</th>
+                  <th className="text-left py-3 px-4 text-gray-600">Status</th>
+                  <th className="text-right py-3 px-4 text-gray-600">Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((u) => (
+                  <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4 text-gray-800">{u.email}</td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                        u.role === 'ADMIN'
+                          ? 'bg-rose-100 text-rose-700'
+                          : u.role === 'RECRUITER'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      {u.is_active ? (
+                        <span className="text-green-600">Ativo</span>
+                      ) : (
+                        <span className="text-red-600">Inativo</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        onClick={() => toggleActive(u.id)}
+                        className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                          u.is_active
+                            ? 'text-red-600 hover:bg-red-50'
+                            : 'text-green-600 hover:bg-green-50'
+                        }`}
+                      >
+                        {u.is_active ? 'Bloquear' : 'Ativar'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex justify-between items-center text-gray-400 text-xs border-t border-gray-200 pt-4">
+        <div className="flex items-center gap-2">
+          <Award size={14} />
+          <span>Total members: {metrics.total}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <BarChart3 size={14} />
+          <span>Current active: {metrics.active}</span>
+        </div>
+      </div>
     </div>
   );
 }

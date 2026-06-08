@@ -1,10 +1,17 @@
-﻿import json
+﻿# app/services/gemini_service.py
+import json
+import logging
 import google.generativeai as genai
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
 
 class GeminiService:
     def __init__(self):
+        if not settings.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY not configured in environment")
+        if not settings.GEMINI_API_KEY.startswith("AIza"):
+            logger.warning("GEMINI_API_KEY does not start with AIza - may be invalid")
         genai.configure(api_key=settings.GEMINI_API_KEY)
         self.model = genai.GenerativeModel("gemini-1.5-flash")
 
@@ -27,8 +34,13 @@ class GeminiService:
         Currículo:
         {text}
         """
-        response = await self.model.generate_content_async(prompt)
-        return self._parse_json(response.text)
+        try:
+            response = await self.model.generate_content_async(prompt)
+            return self._parse_json(response.text)
+        except Exception as e:
+            logger.error(f"Gemini extraction failed: {e}")
+            # fallback para dados vazios para não quebrar o fluxo
+            return {}
 
     async def evaluate_compatibility(
         self,
@@ -53,11 +65,15 @@ class GeminiService:
             "justification": "<justificativa detalhada em português>"
         }}
         """
-        response = await self.model.generate_content_async(prompt)
-        data = self._parse_json(response.text)
-        score = float(data.get("score", 0))
-        justification = str(data.get("justification", ""))
-        return max(0.0, min(100.0, score)), justification
+        try:
+            response = await self.model.generate_content_async(prompt)
+            data = self._parse_json(response.text)
+            score = float(data.get("score", 0))
+            justification = str(data.get("justification", ""))
+            return max(0.0, min(100.0, score)), justification
+        except Exception as e:
+            logger.error(f"Gemini compatibility evaluation failed: {e}")
+            return 0.0, "Erro ao avaliar compatibilidade."
 
     def _parse_json(self, text: str) -> dict:
         cleaned = text.strip()

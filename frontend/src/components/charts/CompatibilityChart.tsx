@@ -1,42 +1,63 @@
+// src/components/charts/CompatibilityChart.tsx
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-export default function CompatibilityChart({ data }: { data: { range: string; count: number }[] }) {
+interface CompatibilityDist {
+  range: string;
+  count: number;
+}
+
+interface CompatibilityChartProps {
+  data: CompatibilityDist[];
+  height?: number;
+  barColor?: string;
+}
+
+export default function CompatibilityChart({ 
+  data, 
+  height = 300,
+  barColor = '#3b82f6' 
+}: CompatibilityChartProps) {
+  // Se não houver dados ou estiver vazio, mostra mensagem
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[200px] bg-gray-50 rounded-xl border border-gray-200">
+        <p className="text-gray-500 text-sm">Sem dados de compatibilidade disponíveis.</p>
+      </div>
+    );
+  }
+
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart
+        data={data}
+        margin={{ top: 10, right: 30, left: 0, bottom: 5 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
         <XAxis 
           dataKey="range" 
-          tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }}
-          axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-          tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+          tick={{ fontSize: 12, fill: '#6b7280' }}
+          axisLine={{ stroke: '#d1d5db' }}
         />
         <YAxis 
+          tick={{ fontSize: 12, fill: '#6b7280' }}
+          axisLine={{ stroke: '#d1d5db' }}
           allowDecimals={false}
-          tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }}
-          axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-          tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
         />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: 'rgba(15, 25, 35, 0.9)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '12px',
-            color: 'white',
-            fontSize: '12px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        <Tooltip 
+          contentStyle={{ 
+            backgroundColor: 'white', 
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
           }}
-          labelStyle={{ color: 'rgba(255,255,255,0.7)' }}
-          itemStyle={{ color: 'white' }}
-          cursor={{ fill: 'rgba(59,130,246,0.1)' }}
+          formatter={(value: number) => [`${value} candidaturas`, 'Quantidade']}
+          labelFormatter={(label) => `Compatibilidade: ${label}`}
         />
         <Bar 
           dataKey="count" 
-          fill="#3b82f6" 
-          radius={[6, 6, 0, 0]} 
+          fill={barColor}
+          radius={[4, 4, 0, 0]}
           barSize={40}
-          fillOpacity={0.8}
         />
       </BarChart>
     </ResponsiveContainer>
