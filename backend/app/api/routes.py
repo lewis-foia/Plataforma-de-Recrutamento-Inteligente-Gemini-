@@ -86,10 +86,16 @@ def close_job(
 
 # ---------- Resumes (com Gemini) ----------
 async def process_resume_with_gemini(resume_id: str, file_path: str, content_type: str, db: Session):
-    text = extract_text_from_file(file_path, content_type)
-    gemini = GeminiService()
-    parsed_data = await gemini.extract_resume_data(text)
-    crud.update_resume_parsed_data(db, resume_id, parsed_data)
+    try:
+        text = extract_text_from_file(file_path, content_type)
+        gemini = GeminiService()
+        parsed_data = await gemini.extract_resume_data(text)
+        crud.update_resume_parsed_data(db, resume_id, parsed_data)
+        print(f" Currículo {resume_id} processado com sucesso!")
+    except Exception as e:
+        print(f" ERRO ao processar currículo {resume_id}: {e}")
+        import traceback
+        traceback.print_exc()
 
 @router.post("/resumes/upload", status_code=201)
 def upload_resume(
