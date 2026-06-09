@@ -8,12 +8,18 @@ import os
 import shutil
 import uuid
 import json
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/v1")
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# -------------------- Auth --------------------
+# ---------- Modelos auxiliares ----------
+class ApplyRequest(BaseModel):
+    job_id: str
+    resume_id: str | None = None
+
+# ---------- Auth ----------
 @router.post("/auth/register", status_code=201)
 def register(req: schemas.RegisterRequest, db: Session = Depends(get_db)):
     if crud.get_user_by_email(db, req.email):
@@ -39,7 +45,7 @@ def me(current_user = Depends(auth.get_current_user)):
         is_active=current_user.is_active
     )
 
-# -------------------- Jobs --------------------
+# ---------- Jobs ----------
 @router.get("/jobs/", response_model=list[schemas.JobResponse])
 def list_jobs(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     jobs = crud.get_jobs(db, skip, limit, only_open=True)
@@ -59,6 +65,9 @@ def create_job(
     db: Session = Depends(get_db)
 ):
     job = crud.create_job(db, job_data, current_user.id)
+    # Se updated_at for None (SQLite), iguala a created_at
+    if job.updated_at is None:
+        job.updated_at = job.created_at
     return job
 
 @router.patch("/jobs/{job_id}/close", response_model=schemas.JobResponse)
@@ -75,7 +84,7 @@ def close_job(
     closed = crud.close_job(db, job_id)
     return closed
 
-# -------------------- Resumes (com Gemini) --------------------
+# ---------- Resumes (com Gemini) ----------
 async def process_resume_with_gemini(resume_id: str, file_path: str, content_type: str, db: Session):
     text = extract_text_from_file(file_path, content_type)
     gemini = GeminiService()
@@ -105,7 +114,7 @@ def list_resumes(current_user = Depends(auth.require_role(["CANDIDATE"])), db: S
     resumes = crud.get_user_resumes(db, current_user.id)
     return resumes
 
-# -------------------- Applications (com Gemini) --------------------
+# ---------- Applications (com Gemini) ----------
 async def evaluate_compatibility_task(app_id: str, user_id: str, job_id: str, resume_id: str, db: Session):
     resume = crud.get_resume_by_id(db, resume_id) if resume_id else crud.get_user_latest_resume(db, user_id)
     job = crud.get_job_by_id(db, job_id)
@@ -123,19 +132,18 @@ async def evaluate_compatibility_task(app_id: str, user_id: str, job_id: str, re
 
 @router.post("/applications/", status_code=201)
 def apply(
-    job_id: str,
-    resume_id: str = None,
+    request: ApplyRequest,   # <-- Agora aceita JSON com job_id e resume_id
     background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user = Depends(auth.require_role(["CANDIDATE"])),
     db: Session = Depends(get_db)
 ):
-    job = crud.get_job_by_id(db, job_id)
+    job = crud.get_job_by_id(db, request.job_id)
     if not job or job.status != "OPEN":
         raise HTTPException(400, "Job not available")
-    app_record = crud.create_application(db, current_user.id, job_id, resume_id)
+    app_record = crud.create_application(db, current_user.id, request.job_id, request.resume_id)
     if not app_record:
         raise HTTPException(400, "You already applied to this job")
-    background_tasks.add_task(evaluate_compatibility_task, app_record.id, current_user.id, job_id, resume_id, db)
+    background_tasks.add_task(evaluate_compatibility_task, app_record.id, current_user.id, request.job_id, request.resume_id, db)
     return {"message": "Application submitted", "application_id": app_record.id}
 
 @router.get("/applications/mine", response_model=list[schemas.ApplicationResponse])
@@ -143,7 +151,7 @@ def my_applications(current_user = Depends(auth.require_role(["CANDIDATE"])), db
     apps = crud.get_user_applications(db, current_user.id)
     return apps
 
-# -------------------- Users (Admin) --------------------
+# ---------- Users (Admin) ----------
 @router.get("/users/")
 def list_users(current_user = Depends(auth.require_role(["ADMIN"])), db: Session = Depends(get_db)):
     users = crud.get_all_users(db)
@@ -156,7 +164,7 @@ def toggle_active(user_id: str, current_user = Depends(auth.require_role(["ADMIN
         raise HTTPException(404, "User not found")
     return {"id": user.id, "is_active": user.is_active}
 
-# -------------------- Profile --------------------
+# ---------- Profile ----------
 @router.get("/profile/", response_model=schemas.ProfileResponse)
 def get_profile(current_user = Depends(auth.get_current_user)):
     return schemas.ProfileResponse(
@@ -172,7 +180,7 @@ def update_profile(profile: schemas.ProfileUpdate, current_user = Depends(auth.g
     updated = crud.update_profile(db, current_user.id, profile)
     return {"message": "Profile updated"}
 
-# -------------------- Dashboard (Admin) --------------------
+# ---------- Dashboard (Admin) ----------
 @router.get("/dashboard/metrics")
 def dashboard_metrics(current_user = Depends(auth.require_role(["ADMIN"])), db: Session = Depends(get_db)):
     total_candidates = db.query(crud.models.User).filter(crud.models.User.role == "CANDIDATE").count()
@@ -190,7 +198,7 @@ def dashboard_metrics(current_user = Depends(auth.require_role(["ADMIN"])), db: 
         "compatibility_distribution": []
     }
 
-# -------------------- Candidates stats --------------------
+# ---------- Candidates stats ----------
 @router.get("/candidates/me/stats")
 def candidate_stats(current_user = Depends(auth.get_current_user), db: Session = Depends(get_db)):
     apps = crud.get_user_applications(db, current_user.id)
