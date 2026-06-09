@@ -216,7 +216,7 @@ def candidate_stats(current_user = Depends(auth.get_current_user), db: Session =
         "approvalRate": int(approved / total * 100) if total else 0
     }
     
-    @router.get("/jobs/{job_id}/candidates")
+@router.get("/jobs/{job_id}/candidates")
 def get_job_candidates(job_id: str, db: Session = Depends(get_db)):
     # Obter todas as candidaturas da vaga com os dados do candidato e score
     results = db.query(
