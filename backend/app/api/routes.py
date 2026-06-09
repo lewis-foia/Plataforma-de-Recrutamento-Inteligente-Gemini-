@@ -215,3 +215,28 @@ def candidate_stats(current_user = Depends(auth.get_current_user), db: Session =
         "avgCompatibility": 0,
         "approvalRate": int(approved / total * 100) if total else 0
     }
+    
+    @router.get("/jobs/{job_id}/candidates")
+def get_job_candidates(job_id: str, db: Session = Depends(get_db)):
+    # Obter todas as candidaturas da vaga com os dados do candidato e score
+    results = db.query(
+        crud.models.Application,
+        crud.models.User.email,
+        crud.models.User.full_name,
+        crud.models.User.id.label("user_id")
+    ).join(crud.models.User, crud.models.Application.user_id == crud.models.User.id
+    ).filter(crud.models.Application.job_id == job_id).all()
+    
+    rankings = []
+    for app, email, full_name, user_id in results:
+        rankings.append({
+            "candidate_id": str(user_id),
+            "candidate_name": full_name or email.split('@')[0],
+            "application_id": str(app.id),
+            "compatibility_score": app.compatibility_score or 0,
+            "justification": app.compatibility_justification or "Aguardando análise",
+            "skills": []  # pode ser preenchido depois
+        })
+    # Ordenar por score decrescente
+    rankings.sort(key=lambda x: x["compatibility_score"], reverse=True)
+    return rankings
